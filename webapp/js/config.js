@@ -8,7 +8,6 @@ circular.use('config', function() {
   // so  note freq = 440 * pow(2, (i - 48) / 12)
   var baseNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   var names = [];
-  var frequencies = [];
   var baseNote, octave;
   for (var i = 0; i < 88; ++i) {
     baseNote = (i - 3) % 12; // because the octave starts at C and not A :P
@@ -17,13 +16,11 @@ circular.use('config', function() {
     }
     octave = 1 + Math.floor((i - 3) / 12);
     names.push(baseNames[baseNote] + octave);
-    frequencies.push(440 * Math.pow(2, (i - 48) / 12));
   }
 
   return {
     notes: {
       baseNames: baseNames,
-      frequencies: frequencies,
       names: names,
       range: {
         begin: 15,
@@ -33,12 +30,12 @@ circular.use('config', function() {
       }
     },
     pitchTracker: {
-      nPeriods: 2, // better >= 2, decrease to lower latency (need > 1),
-      nNotes: 10
+      bufferSize: 8192
     },
     render: {
-      width: window.innerWidth,
-      height: 200
+      width: window.innerWidth - 10,
+      height: 300,
+      nAmplitudes: 5
     }
   };
 });

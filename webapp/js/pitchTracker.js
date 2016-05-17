@@ -10,33 +10,50 @@ circular.use('pitchTracker', ['bus', 'config'], function PitchTracker(bus, confi
   //   - find max (+trick if one octave too high)
   //   - "remove" max & harmonics
   // - end loop
-  // => need custom fft & window function : check dsp.js for fft (RFFT class especially) & for windowing
 
-  var ctx = new AudioContext();
-  var sampleRate = ctx.sampleRate;
-  console.log('sample rate:', sampleRate);
-  var frequencies = config.notes.frequencies;
-  var beginNote = config.notes.range.begin;
-  var endNote = config.notes.range.end;
-  var nNotes = endNote - beginNote;
-  var nPeaks = config.pitchTracker.nNotes;
-  console.log('n notes:', nNotes);
-  console.log('min frequency:', frequencies[beginNote]);
-  console.log('max frequency:', frequencies[endNote - 1]);
+  var ctx; // web audio context
 
-  // min buffersize to be able to detect lowest pitch
-  var bufferSize = (function minBufferSize() {
-    var _bufferSize = config.pitchTracker.nPeriods * sampleRate / frequencies[beginNote];
-    // transform that so bufferSize must be a power of 2 between 256 & 8192
-    var bufPow = Math.floor(Math.log(_bufferSize) / Math.log(2)); // 2 ^bufPow = bufferSize
-    bufPow = Math.max(bufPow, 8); // >= 256
-    bufPow = Math.min(bufPow, 13); // <= 8192
-    return Math.pow(2, bufPow);
-  })();
-  var fftSize = 2 * bufferSize;
-  var analyzer;
-  var fft = new Uint8Array(bufferSize);
-  console.log('buffer size:', bufferSize);
+  // constants
+  var beginNote, endNote, nNotes,
+    F, // note frequencies
+    T, // note periods
+    df, // F[i+1] = F[i] * df
+    bufferSize, fftSize, cepSize;
+
+  // signal & spectrum buffers
+  var S, // input signal
+      WS, // windowed signal (Hamming)
+      FFT,
+      WAF, // weighted autocorrelation function
+      FWAF, // WAF indexed by frequency
+      HPS, // harmonic product spectrum
+      CEP, // cepstrum
+      FCEP, // CEP index by frequency
+      FCBHPS; // cepstrum biased harmonic product spectrum indexed by frequency
+
+  // note buffers (<=> spectrum buffers scaled to notes, ie bands of "2*df")
+  var FFTn, FWAFn, HPSn, FCEPn, FCBHPSn;
+
+  // init constants and buffers
+  function init() {
+    beginNote = config.notes.range.begin;
+    endNote = config.notes.range.end;
+    nNotes = endNote - beginNote;
+    nPeaks = config.pitchTracker.nNotes;
+    bufferSize = config.pitchTracker.bufferSize;
+    fftSize = bufferSize / 2;
+    cepSize = fftSize / 2;
+    F = new Float32Array(88);
+    T = new Float32Array(88);
+    df = Math.pow(2, 1 / 12);
+    for (var i = 0; i < 88; ++i) {
+      F[i] = 440 * Math.pow(df, (i - 48));
+      T[i] = 1 / F[i];
+    }
+  }
+
+  // buffers
+  S = new Float32Array()
 
   // computes waf (weighted autocorrelation function)
   // real waf: waf(T) = acf(T) / (amdf(T) + k)
@@ -226,7 +243,7 @@ circular.use('pitchTracker', ['bus', 'config'], function PitchTracker(bus, confi
      */
 
     //bus.pub('pitch', objPeaks, averageWAF, averageFFT);
-  }
+  /*}
 
   function onGetUserMediaSuccess(stream) {
     var mic = ctx.createMediaStreamSource(stream);
@@ -258,5 +275,5 @@ circular.use('pitchTracker', ['bus', 'config'], function PitchTracker(bus, confi
     console.log(err);
   }
 
-  navigator.webkitGetUserMedia({ audio: true, video: false }, onGetUserMediaSuccess, onGetUserMediaError);
+  navigator.webkitGetUserMedia({ audio: true, video: false }, onGetUserMediaSuccess, onGetUserMediaError);*/
 });
