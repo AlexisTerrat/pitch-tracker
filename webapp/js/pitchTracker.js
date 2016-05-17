@@ -1,6 +1,7 @@
-circular.use('pitchTracker', ['bus', 'config'], function PitchTracker(bus, config) {
+circular.use('pitchTracker', ['bus', 'dsp', 'config'], function PitchTracker(bus, dsp, config) {
   // algo idea: cepstrum biased harmonic product spectrum
   // - apply hamming window
+  // - pad to get semi tone def & enough space in fft for hps
   // - fft
   // - hps
   // - cepstrum : fft(log(fft))
@@ -53,7 +54,7 @@ circular.use('pitchTracker', ['bus', 'config'], function PitchTracker(bus, confi
   }
 
   // buffers
-  S = new Float32Array()
+  S = new Float32Array();
 
   // computes waf (weighted autocorrelation function)
   // real waf: waf(T) = acf(T) / (amdf(T) + k)
@@ -172,7 +173,7 @@ circular.use('pitchTracker', ['bus', 'config'], function PitchTracker(bus, confi
     var res = {};
     res[beginNote + maxFFTi] = maxFFT ? thresholdFFT : 0;
     bus.pub('pitch', res, averageWAF, averageFFT);
-
+  }
     // return if we only have noise
     /*if (averageWAF < 0.0002) {
       bus.pub('pitch', {}, averageWAF, averageFFT);
