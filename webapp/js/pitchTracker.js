@@ -1,4 +1,4 @@
-circular.use('pitchTracker', ['bus', 'dsp', 'config'], function PitchTracker(bus, dsp, config) {
+circular.use('pitchTracker', ['bus', 'dsp', 'notes', 'audio', 'config'], function PitchTracker(bus, dsp, notes, audio, config) {
   // algo idea: cepstrum biased harmonic product spectrum
   // - apply hamming window
   // - pad to get semi tone def & enough space in fft for hps
@@ -13,6 +13,72 @@ circular.use('pitchTracker', ['bus', 'dsp', 'config'], function PitchTracker(bus
   // - end loop
 
   var ctx; // web audio context
+
+  // bufferSize power of 2
+  // paddedBufferSize power of 2
+  // fftSize = paddedBufferSize / 2
+  // need fMax in fft = fMax (interested in) * (nHarmonics + 1)
+  // cepSize = fftSize/2
+  // hpsSize = fftSize/(nHarmonics + 1) -> maybe interpolate fft to get cepSize == hpsSize and avoid really big padding (later)
+  // need df (in cep & hps) <= 1 semitone (for min interesting frequency)
+  // need also fMax in hps & cep >= fMax(endNote - 1)
+
+
+  // constants
+  var inBufferSize = config.audio.bufferSize,
+      nHarmonics = config.pitchTracker.nHarmonics,
+      df = notes.df,
+      fMax = notes.F[notes.nNotes - 1],
+      fMin = notes.F[0],
+      nNotes = notes.nNotes;
+
+  // constants (depending on sampleRate)
+  var sampleRate,
+      paddedBufferSize, // fftSize = paddedBufferSize = 2 * fftBufferSize
+      fftBufferSize,
+      cepBufferSize,
+      hpsBufferSize;
+
+  // constant buffers
+  var F = notes.F,
+      T = notes.T;
+
+  // constant buffers (depending on sampleRate)
+  var ;
+
+  // variable buffers
+  var windowedInputBuffer,
+      fftBuffer,
+      cepBuffer,
+      hpsBuffer,
+      noteHpsBuffer = new Float32Array(nNotes), // indexed by note
+      noteCepBuffer = new Float32Array(nNotes),
+      noteScoreBuffer = new Float32Array(nNotes);
+
+  // processors
+  var hamming, fft, cepstrum, hps;
+
+  // return the lowest power of 2 bigger than x
+  function ceilPow2(x) {
+    return Math.pow(2, Math.ceil(Math.log(x) / Math.LN2));
+  }
+
+  // u got the idea
+  function floorPow2(x) {
+    return Math.pow(2, Math.floor(Math.log(x) / Math.LN2));
+  }
+
+  function initPitchTracker() {
+    sampleRate = audio.context.sampleRate;
+    // relation between spectrum buffer index & frequency:
+    // F[i] = i * sampleRate / fftSize (with fftSize = 2 * fftBufferSize)
+    // and max frequency = fNyquist = sampleRate / 2
+
+    paddedBufferSize = (nHarmonics + 1) * inBufferSize;
+    hpsBufferSize = (1 + nHarmonics) * fMax
+  }
+
+  // max
 
   // constants
   var beginNote, endNote, nNotes,
@@ -244,37 +310,22 @@ circular.use('pitchTracker', ['bus', 'dsp', 'config'], function PitchTracker(bus
      */
 
     //bus.pub('pitch', objPeaks, averageWAF, averageFFT);
-  /*}
+  //}
 
-  function onGetUserMediaSuccess(stream) {
-    var mic = ctx.createMediaStreamSource(stream);
-    // bandpass to remove some noise
-    var lowpass = ctx.createBiquadFilter();
-    var lpCutFreq = Math.min(frequencies[endNote - 1] * 2, 10000);
-    lowpass.type = 'lowpass';
-    lowpass.frequency.setValueAtTime(lpCutFreq, 0);
-    var highpass = ctx.createBiquadFilter();
-    var hpCutFreq = Math.max(frequencies[beginNote] / 2, 20);
-    highpass.type = 'highpass';
-    highpass.frequency.setValueAtTime(hpCutFreq, 0);
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = fftSize;
-    analyser.smoothingTimeConstant = 0.5;
-    var processor = ctx.createScriptProcessor(bufferSize, 1, 1);
-    processor.onaudioprocess = onAudioProcess;
-    var mute = ctx.createGain();
-    mute.gain.setValueAtTime(0, 0);
-    mic.connect(lowpass);
-    lowpass.connect(highpass);
-    highpass.connect(analyser);
-    analyser.connect(processor);
-    processor.connect(mute);
-    mute.connect(ctx.destination);
+  function startPitchTracker() {
+
+    bus.sub('audio.data', processAudioData);
   }
 
-  function onGetUserMediaError(err) {
-    console.log(err);
+  function stopPitchTracker() {
+    bus.unsub('audio.data', processAudioData);
   }
 
-  navigator.webkitGetUserMedia({ audio: true, video: false }, onGetUserMediaSuccess, onGetUserMediaError);*/
+  function processAudioData(audioData) {
+
+    bus.pub()
+  }
+
+  bus.sub('audio.start', startPitchTracker);
+  bus.sub('audio.stop', stopPitchTracker);
 });

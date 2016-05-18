@@ -1,16 +1,16 @@
-circular.use('ui', ['bus', 'config'], function(bus, config) {
+circular.use('ui', ['bus', 'notes', 'config'], function(bus, notes, config) {
   // useful constants
-  var w = config.render.width;
-  var h = config.render.height;
-  var nAmplitudes = config.render.nAmplitudes;
-  var noteNames = config.notes.names;
-  var beginNote = config.notes.range.begin;
-  var endNote = config.notes.range.end; // excluded
-  var nNotes = endNote - beginNote;
+  var w = config.ui.width;
+  var h = config.ui.height;
+  var nArrays = config.ui.nDisplayedArrays;
+  var noteNames = notes.names;
+  var beginNote = notes.begin;
+  var endNote = notes.end; // excluded
+  var nNotes = notes.nNotes;
   var wNote = Math.floor((w - 1) / nNotes); // incl right border
   var hNoteName = wNote;
-  var hAmp = wNote;
-  var hNoteStatic = h - hNoteName - nAmplitudes * hAmp;
+  var hArray = wNote;
+  var hNoteStatic = h - hNoteName - nArrays * hArray;
   var hBlackNotes = Math.floor(2 * (hNoteStatic - 2) / 3);
 
   // setup canvas
@@ -26,9 +26,9 @@ circular.use('ui', ['bus', 'config'], function(bus, config) {
       ctx.moveTo(i * wNote, 1);
       ctx.lineTo(i * wNote, h - hNoteName - 1);
     }
-    for (var i = 0; i < nAmplitudes; ++i) {
-      ctx.moveTo(1, hNoteStatic + i * hAmp);
-      ctx.lineTo(nNotes * wNote - 1, hNoteStatic + i * hAmp);
+    for (var i = 0; i < nArrays; ++i) {
+      ctx.moveTo(1, hNoteStatic + i * hArray);
+      ctx.lineTo(nNotes * wNote - 1, hNoteStatic + i * hArray);
     }
     ctx.stroke();
   }
@@ -48,15 +48,15 @@ circular.use('ui', ['bus', 'config'], function(bus, config) {
   }
 
   // return a color between white & red
-  // amplitude == 0 => white
-  // amplitude == 1 => red
-  function amplitudeColor(amplitude) {
-    var gb = 255 - Math.floor(255 * amplitude);
+  // magnitude == 0 => white
+  // magnitude == 1 => red
+  function magnitudeColor(magnitude) {
+    var gb = 255 - Math.floor(255 * magnitude);
     return 'rgb(255,' + gb + ',' + gb + ')';
   }
 
   // amplitudes must have values between 0 and 1
-  var amplitudes;
+  var arrays;
   var needStop;
   function startDraw() {
     needStop = false;
@@ -67,19 +67,22 @@ circular.use('ui', ['bus', 'config'], function(bus, config) {
     needStop = true;
   }
 
-  function drawAmplitudes() {
+  function drawArrays() {
     if (needStop) {
       return;
     }
-    if (amplitudes) {
-      for (var i = 0; i < nAmplitudes; ++i) {
+    if (arrays) {
+      var array, arrayLength;
+      for (var i = 0; i < Math.min(arrays.length, nArrays); ++i) {
+        array = arrays[i];
+        arrayLength = array.length;
         for (var j = 0; j < nNotes; ++j) {
-          ctx.fillStyle = amplitudeColor(amplitudes[i][j]);
-          ctx.fillRect(j * wNote + 2, hNoteStatic + i * hAmp + 2, wNote - 4, hAmp - 4);
+          ctx.fillStyle = j < arrayLength ? magnitudeColor(array[j]) : 'white';
+          ctx.fillRect(j * wNote + 2, hNoteStatic + i * hArray + 2, wNote - 4, hArray - 4);
         }
       }
     }
-    window.requestAnimationFrame(drawAmplitudes);
+    window.requestAnimationFrame(drawArrays);
   }
 
   function drawNoteNames() {
@@ -99,29 +102,19 @@ circular.use('ui', ['bus', 'config'], function(bus, config) {
   drawBlackNotes();
   drawNoteNames();
 
-  function draw(_amplitudes) {
-    amplitudes = _amplitudes;
+  function draw(data) {
+    arrays = data;
   }
 
   document.getElementById('start').onclick = function() {
-    // test
-    amplitudes = [];
-    for (var i = 0; i < nAmplitudes; ++i) {
-      var _amplitudes = [];
-      for (var j = 0; j < nNotes; ++j) {
-        _amplitudes.push(Math.random());
-      }
-      amplitudes.push(_amplitudes);
-    }
-
-    bus.pub('start');
+    bus.pub('ui.start');
   };
 
   document.getElementById('stop').onclick = function() {
-    bus.pub('stop');
+    bus.pub('ui.stop');
   };
 
-  bus.sub('start', startDraw);
-  bus.sub('stop', stopDraw);
-  bus.sub('pitch', draw);
+  bus.sub('audio.start', startDraw);
+  bus.sub('audio.stop', stopDraw);
+  bus.sub('pitch.data', draw);
 });
