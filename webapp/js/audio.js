@@ -1,8 +1,8 @@
 circular.use('audio', ['bus', 'notes', 'config'], function Audio(bus, notes, config) {
   var audio = {};
   audio.bufferSize = config.audio.bufferSize;
-  audio.fHighPass = Math.max(notes.F[0] / 2, 20);
-  audio.fLowPass = Math.min(notes.F[notes.nNotes - 1] * 2, 10000);
+  audio.fHighPass = Math.max(notes.F[0], 20);
+  audio.fLowPass = Math.min(notes.F[notes.nNotes - 1] * config.pitchTracker.nHarmonics, 20000);
 
   function onAudioProcess(audioDataEvent) {
     bus.pub('audio.data', audioDataEvent.inputBuffer.getChannelData(0));

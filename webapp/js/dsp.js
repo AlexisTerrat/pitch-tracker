@@ -6,6 +6,38 @@
 circular.use('dsp', function DSP() {
   var TWO_PI = 2 * Math.PI;
 
+  // downsampler (*d with d < 1)
+  function downSampler(srcLength, d) {
+    var destLength = Math.floor(srcLength * d);
+    // dest[i] = tFact[i] * src[tSrc[i]] + (1 - tFact[i]) * src[tSrc[i] + 1]
+    var iCeilSrc = new Uint16Array(destLength);
+    var factors = new Float32Array(destLength);
+    var factor;
+    var iDest, iSrc;
+    for (iDest = 0; iDest < destLength; ++iDest) {
+      iSrc = iDest / d;
+      iCeilSrc[i] = Math.ceil(iSrc);
+      if (iCeilSrc[i] >= srcLength) {
+        iCeilSrc[i] = srcLength - 1;
+      }
+      factors[i] = iCeilSrc[i] - iSrc;
+    }
+
+    function run(src, dest) {
+      dest[0] = src[0];
+      for (iDest = 1, iDest < destLength; ++iDest) {
+        iSrc = iCeilSrc[iDest];
+        factor = factors[iDest];
+        dest[i] = factor * src[iSrc - 1] + (1 - factor) * src[iSrc];
+      }
+    }
+
+    return {
+      destLength: destLength,
+      run: run
+    }
+  }
+
   function hamming(srcLength) {
     var i, factor = new Float32Array(srcLength);
     for (i = 0; i < srcLength; ++i) {
@@ -470,6 +502,7 @@ circular.use('dsp', function DSP() {
   }
 
   return {
+    downSampler: downSampler,
     hamming: hamming,
     fft: fft,
     cepstrum: cepstrum,
