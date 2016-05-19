@@ -31,8 +31,7 @@ circular.use('audio', ['bus', 'notes', 'config'], function Audio(bus, notes, con
 
     audio.nodes.mic.connect(audio.nodes.lowpass);
     audio.nodes.lowpass.connect(audio.nodes.highpass);
-    audio.nodes.highpass.connect(audio.nodes.analyser);
-    audio.nodes.analyser.connect(audio.nodes.processor);
+    audio.nodes.highpass.connect(audio.nodes.processor);
     audio.nodes.processor.connect(audio.nodes.mute);
     audio.nodes.mute.connect(audio.context.destination);
 
@@ -52,7 +51,7 @@ circular.use('audio', ['bus', 'notes', 'config'], function Audio(bus, notes, con
     delete audio.nodes;
 
     var micStreamTracks = audio.stream.getTracks();
-    for (var i = 0; i < micStreamTracks.length(); ++i) {
+    for (var i = 0; i < micStreamTracks.length; ++i) {
       micStreamTracks[i].stop();
     }
     delete audio.stream;

@@ -25,7 +25,7 @@ circular.use('notes', ['config'], function Notes(config) {
     }
     octave = 1 + Math.floor((note - 3) / 12);
     notes.names.push(notes.baseNames[baseNote] + octave);
-    f = 440 * Math.pow(df, (note - 48));
+    f = 440 * Math.pow(notes.df, (note - 48));
     notes.F[i] = f;
     notes.T[i] = 1 / f;
   }

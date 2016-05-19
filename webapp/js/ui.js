@@ -41,7 +41,7 @@ circular.use('ui', ['bus', 'notes', 'config'], function(bus, notes, config) {
   function drawBlackNotes() {
     ctx.fillStyle = 'black';
     for (var i = 1; i < nNotes; ++i) {
-      if (isBlack(beginNote + i)) {
+      if (isBlack(i)) {
         ctx.fillRect(i * wNote + 1, 1, wNote - 2, hBlackNotes - 2);
       }
     }
@@ -60,7 +60,7 @@ circular.use('ui', ['bus', 'notes', 'config'], function(bus, notes, config) {
   var needStop;
   function startDraw() {
     needStop = false;
-    window.requestAnimationFrame(drawAmplitudes);
+    window.requestAnimationFrame(drawArrays);
   }
 
   function stopDraw() {
@@ -92,8 +92,8 @@ circular.use('ui', ['bus', 'notes', 'config'], function(bus, notes, config) {
     ctx.fillStyle = 'black';
     var x0 = 1 + Math.floor((wNote - 1) / 2);
     var y = h - Math.floor(hNoteName / 2) + 1;
-    for (var note = beginNote; note < endNote; ++note) {
-      ctx.fillText(noteNames[note], x0 + wNote * (note - beginNote), y);
+    for (var i = 0; i < nNotes; ++i) {
+      ctx.fillText(noteNames[i], x0 + wNote * i, y);
     }
   }
 

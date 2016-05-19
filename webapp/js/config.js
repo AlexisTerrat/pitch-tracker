@@ -2,21 +2,20 @@ circular.use('config', function() {
   return {
     notes: {
       range: {
-        begin: 28, // min 0
-        end: 65 // max 88 (excluded)
+        begin: 27, // min 0
+        end: 64 // max 88 (excluded)
       }
     },
     audio: {
       bufferSize: 1024
     },
     pitchTracker: {
-      nHarmonics: 3,
-      maxUpSamplingFactor: 10
-    }
+      nHarmonics: 3 // make sure that nHarmonics * f(notes.range.end) < sampleRate / 2
+    },
     ui: {
       width: window.innerWidth - 10,
       height: 300,
-      nDisplayedArrays: 5
+      nDisplayedArrays: 1
     }
   };
 });

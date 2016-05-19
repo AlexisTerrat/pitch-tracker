@@ -13,15 +13,6 @@ circular.use('pitchTracker', ['bus', 'dsp', 'notes', 'audio', 'config'], functio
   //   - "remove" max & its harmonics
   // - end loop
 
-  // bufferSize power of 2
-  // paddedBufferSize power of 2
-  // fftSize = paddedBufferSize / 2
-  // need fMax in fft = fMax (interested in) * (nHarmonics + 1)
-  // cepSize = fftSize/2
-  // hpsSize = fftSize/(nHarmonics + 1) -> maybe interpolate fft to get cepSize == hpsSize and avoid really big padding (later)
-  // need df (in cep & hps) <= 1 semitone (for min interesting frequency)
-  // need also fMax in hps & cep >= fMax(endNote - 1)
-
   // relation between spectrum buffer index & frequency:
   // F[i] = i * sampleRate / fftSize (with fftSize = 2 * fftBufferSize)
   // and max frequency = fNyquist = sampleRate / 2
@@ -32,28 +23,60 @@ circular.use('pitchTracker', ['bus', 'dsp', 'notes', 'audio', 'config'], functio
   var nHarmonics = config.pitchTracker.nHarmonics;
   var F = notes.F, T = notes.T;
   var df = notes.df; // F[i+1] = F[i] * df
-  var fMax = notes.F[notes.nNotes - 1];
+  var fMax = notes.F[notes.nNotes - 1] * df; // excluded
   var fMin = notes.F[0];
-  var fRes = fMin * (df - 1); // resolution needed in hps & cepstrum
+  var fRes = fMin * (df - 1); // frequency resolution needed for hps
   var nNotes = notes.nNotes;
 
   // buffers
-  var adaptedBuffer, adaptedBufferSize, // downsampled, windowed & padded
+  var adaptedBuffer, windowSize, adaptedBufferSize, // downsampled, windowed & padded
       fftBuffer, fftBufferSize,
       cepBuffer, cepBufferSize,
       hpsBuffer, hpsBufferSize,
-      noteCepBuffer, noteHpsBuffer, noteScoreBuffer; // cep, hps & cbhps (score) indexed by note
+      noteCepIndexMap, // map note index to cepBuffer index
+      noteHpsIndexMap, // map note index to cepBuffer index
+      noteCepBuffer, // TODO
+      noteHpsBuffer, // TODO
+      noteScoreBuffer; // cep, hps & cbhps (score) indexed by note
 
   // processors
   var downSampler, hamming, fft, cepstrum, hps;
 
   function startPitchTracker() {
     inSampleRate = audio.context.sampleRate;
-    // TODO
-    hpsBufferSize = inBufferSize / 2;
-    fftBufferSize = nHarmonics * hpsBuffersize;
-    cepBufferSize = fftBufferSize / 2;
-    paddedBufferSize = 2 * fftBufferSize;
+    downSamplingFactor = 2 * nHarmonics * fMax / inSampleRate;
+    processSampleRate = downSamplingFactor * inSampleRate;
+    downSampler = dsp.DownSampler(inBufferSize, downSamplingFactor);
+    windowSize = downSampler.destLength;
+    hamming = dsp.Hamming(windowSize);
+    fftBufferSize = ceilPow2(processSampleRate / (2 * fRes));
+    adaptedBufferSize = 2 * fftBufferSize;
+    fft = dsp.FFT(adaptedBufferSize);
+    cepBufferSize = adaptedBufferSize;
+    cepstrum = dsp.Cepstrum(fftBufferSize);
+    hps = dsp.HPS(fftBufferSize);
+    hpsBufferSize = hps.destLength;
+
+    adaptedBuffer = new Float32Array(adaptedBufferSize);
+    fftBuffer = new Float32Array(fftBufferSize);
+    cepBuffer = new Float32Array(cepBufferSize);
+    hpsBuffer = new Float32Array(hpsBufferSize);
+    noteCepIndexMap = new Uint16Array(nNotes);
+    noteHpsIndexMap = new Uint16Array(nNotes);
+    noteScoreBuffer = new Float32Array(nNotes);
+
+    var iHps, iCep, f, t;
+    for (var iNote = 0; iNote < nNotes; ++iNote) {
+      f = F[iNote];
+      iHps = Math.round((2 * fftBufferSize / processSampleRate) * f);
+      if (iHps >= hpsBufferSize) { iHps = hpsBufferSize - 1; } // probably useless
+      noteHpsIndexMap[iNote] = iHps;
+
+      t = T[iNote];
+      iCep = Math.round(processSampleRate * t);
+      if (iCep >= cepBufferSize) { iCep = cepBufferSize - 1; } // probably useless
+    }
+
     bus.sub('audio.data', processAudioData);
   }
 
@@ -61,9 +84,30 @@ circular.use('pitchTracker', ['bus', 'dsp', 'notes', 'audio', 'config'], functio
     bus.unsub('audio.data', processAudioData);
   }
 
-  function processAudioData(audioData) {
+  function processAudioData(inBuffer) {
+    downSampler.run(inBuffer, adaptedBuffer);
+    hamming.run(adaptedBuffer, adaptedBuffer);
+    fft.run(adaptedBuffer, fftBuffer);
+    hps.run(fftBuffer, hpsBuffer);
 
-    bus.pub('pitch.data', TODO);
+    // TODO cepstrum from spectrum and not from sample
+    // ie fftBuffer : log -> ifft -> cepBuffer
+    // and with a size matching hpsBufferSize ?
+    cepstrum.run(adaptedBuffer, cepBuffer);
+
+    // compute score and normalize
+    var mag, minMag = 10000, maxMag = -10000, rangeMag, i;
+    for (i = 0; i < nNotes; ++i) {
+      mag = cepBuffer[noteCepIndexMap[i]] * hpsBuffer[noteHpsIndexMap[i]];
+      noteScoreBuffer[i] = mag;
+      if (mag < minMag) { minMag = mag; }
+      if (mag > maxMag) { maxMag = mag; }
+    }
+    rangeMag = maxMag - minMag;
+    for (i = 0; i < nNotes; ++i) {
+      noteScoreBuffer[i] = (noteScoreBuffer[i] - minMag) / rangeMag;
+    }
+    bus.pub('pitch.data', [noteScoreBuffer]);
   }
 
   bus.sub('audio.start', startPitchTracker);
