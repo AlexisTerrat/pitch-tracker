@@ -51,6 +51,12 @@ circular.use('ui', ['bus', 'notes', 'config'], function(bus, notes, config) {
   // magnitude == 0 => white
   // magnitude == 1 => red
   function magnitudeColor(magnitude) {
+    if (magnitude <= 0) {
+      return 'white';
+    }
+    if (magnitude >= 1) {
+      return 'red';
+    }
     var gb = 255 - Math.round(255 * magnitude);
     return 'rgb(255,' + gb + ',' + gb + ')';
   }
@@ -67,6 +73,7 @@ circular.use('ui', ['bus', 'notes', 'config'], function(bus, notes, config) {
   }
 
   var values;
+  var rms = document.getElementById('rms');
   var minFft = document.getElementById('minFft');
   var maxFft = document.getElementById('maxFft');
   var minHps = document.getElementById('minHps');
@@ -92,6 +99,7 @@ circular.use('ui', ['bus', 'notes', 'config'], function(bus, notes, config) {
       arrays = null;
     }
     if (values) {
+      rms.innerHTML = values.rms;
       minFft.innerHTML = values.minFft;
       maxFft.innerHTML = values.maxFft;
       minHps.innerHTML = values.minHps;

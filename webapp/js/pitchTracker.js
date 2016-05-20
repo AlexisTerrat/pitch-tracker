@@ -104,6 +104,11 @@ circular.use('pitchTracker', ['bus', 'dsp', 'notes', 'audio', 'config'], functio
   }
 
   function processAudioData(inBuffer) {
+    var rms = 0;
+    for (i = 0; i < inBufferSize; ++i) {
+      rms += inBuffer[i] * inBuffer[i];
+    }
+    rms = Math.sqrt(rms);
     downSampler.run(inBuffer, adaptedBuffer);
     hamming.run(adaptedBuffer, adaptedBuffer);
     fft.run(adaptedBuffer, fftBuffer);
@@ -146,12 +151,13 @@ circular.use('pitchTracker', ['bus', 'dsp', 'notes', 'audio', 'config'], functio
     rangeCep = maxCep - minCep;
     rangeScore = maxScore - minScore;
     for (i = 0; i < nNotes; ++i) {
-      noteFftBuffer[i] = Math.min(1, Math.max(0, (noteFftBuffer[i] - minFft) / rangeFft));
-      noteHpsBuffer[i] = Math.min(1, Math.max(0, (noteHpsBuffer[i] - minHps) / rangeHps));
-      noteCepBuffer[i] = Math.min(1, Math.max(0, (noteCepBuffer[i] - minCep) / rangeCep));
-      noteScoreBuffer[i] = Math.min(1, Math.max(0, (noteScoreBuffer[i] - minScore) / rangeScore));
+      noteFftBuffer[i] = (noteFftBuffer[i] - minFft) / rangeFft;
+      noteHpsBuffer[i] = (noteHpsBuffer[i] - minHps) / rangeHps;
+      noteCepBuffer[i] = (noteCepBuffer[i] - minCep) / rangeCep;
+      noteScoreBuffer[i] = (noteScoreBuffer[i] - minScore) / rangeScore;
     }
     bus.pub('pitch.data', [noteFftBuffer, noteHpsBuffer, noteCepBuffer, noteScoreBuffer], {
+      rms: rms,
       minFft: minFft,
       maxFft: maxFft,
       minHps: minHps,
