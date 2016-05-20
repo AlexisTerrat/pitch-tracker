@@ -429,7 +429,7 @@ circular.use('dsp', function DSP() {
         for (h = 2; h <= nHarmonics; ++h) {
           hps *= src[h * i];
         }
-        dest[i] = p;
+        dest[i] = hps;
       }
     }
 

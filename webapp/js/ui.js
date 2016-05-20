@@ -51,11 +51,10 @@ circular.use('ui', ['bus', 'notes', 'config'], function(bus, notes, config) {
   // magnitude == 0 => white
   // magnitude == 1 => red
   function magnitudeColor(magnitude) {
-    var gb = 255 - Math.floor(255 * magnitude);
+    var gb = 255 - Math.round(255 * magnitude);
     return 'rgb(255,' + gb + ',' + gb + ')';
   }
 
-  // amplitudes must have values between 0 and 1
   var arrays;
   var needStop;
   function startDraw() {
@@ -67,6 +66,15 @@ circular.use('ui', ['bus', 'notes', 'config'], function(bus, notes, config) {
     needStop = true;
   }
 
+  var values;
+  var minFft = document.getElementById('minFft');
+  var maxFft = document.getElementById('maxFft');
+  var minHps = document.getElementById('minHps');
+  var maxHps = document.getElementById('maxHps');
+  var minCep = document.getElementById('minCep');
+  var maxCep = document.getElementById('maxCep');
+  var minScore = document.getElementById('minScore');
+  var maxScore = document.getElementById('maxScore');
   function drawArrays() {
     if (needStop) {
       return;
@@ -81,6 +89,18 @@ circular.use('ui', ['bus', 'notes', 'config'], function(bus, notes, config) {
           ctx.fillRect(j * wNote + 2, hNoteStatic + i * hArray + 2, wNote - 4, hArray - 4);
         }
       }
+      arrays = null;
+    }
+    if (values) {
+      minFft.innerHTML = values.minFft;
+      maxFft.innerHTML = values.maxFft;
+      minHps.innerHTML = values.minHps;
+      maxHps.innerHTML = values.maxHps;
+      minCep.innerHTML = values.minCep;
+      maxCep.innerHTML = values.maxCep;
+      minScore.innerHTML = values.minScore;
+      maxScore.innerHTML = values.maxScore;
+      values = null;
     }
     window.requestAnimationFrame(drawArrays);
   }
@@ -102,8 +122,9 @@ circular.use('ui', ['bus', 'notes', 'config'], function(bus, notes, config) {
   drawBlackNotes();
   drawNoteNames();
 
-  function draw(data) {
+  function draw(data, vals) {
     arrays = data;
+    values = vals;
   }
 
   document.getElementById('start').onclick = function() {

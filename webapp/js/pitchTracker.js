@@ -35,8 +35,8 @@ circular.use('pitchTracker', ['bus', 'dsp', 'notes', 'audio', 'config'], functio
       hpsBuffer, hpsBufferSize,
       noteCepIndexMap, // map note index to cepBuffer index
       noteHpsIndexMap, // map note index to cepBuffer index
-      noteCepBuffer, // TODO
-      noteHpsBuffer, // TODO
+      noteCepBuffer,
+      noteHpsBuffer,
       noteScoreBuffer; // cep, hps & cbhps (score) indexed by note
 
   // processors
@@ -54,15 +54,18 @@ circular.use('pitchTracker', ['bus', 'dsp', 'notes', 'audio', 'config'], functio
     fft = dsp.FFT(adaptedBufferSize);
     cepBufferSize = adaptedBufferSize;
     cepstrum = dsp.Cepstrum(fftBufferSize);
-    hps = dsp.HPS(fftBufferSize);
+    hps = dsp.HPS(fftBufferSize, nHarmonics);
     hpsBufferSize = hps.destLength;
 
     adaptedBuffer = new Float32Array(adaptedBufferSize);
     fftBuffer = new Float32Array(fftBufferSize);
     cepBuffer = new Float32Array(cepBufferSize);
     hpsBuffer = new Float32Array(hpsBufferSize);
+    noteFftBuffer = new Float32Array(nNotes); // (uses map index from hps)
     noteCepIndexMap = new Uint16Array(nNotes);
+    noteCepBuffer = new Float32Array(nNotes);
     noteHpsIndexMap = new Uint16Array(nNotes);
+    noteHpsBuffer = new Float32Array(nNotes);
     noteScoreBuffer = new Float32Array(nNotes);
 
     var iHps, iCep, f, t;
@@ -75,9 +78,25 @@ circular.use('pitchTracker', ['bus', 'dsp', 'notes', 'audio', 'config'], functio
       t = T[iNote];
       iCep = Math.round(processSampleRate * t);
       if (iCep >= cepBufferSize) { iCep = cepBufferSize - 1; } // probably useless
+      noteCepIndexMap[iNote] = iCep;
     }
 
     bus.sub('audio.data', processAudioData);
+    console.log('pitchTracker started');
+    console.log('   input sample rate :', inSampleRate);
+    console.log(' process sample rate :', processSampleRate);
+    console.log(' downSampling factor :', downSamplingFactor);
+    console.log('            freq min :', fMin);
+    console.log('            freq max :', fMax);
+    console.log('    freq resuolution :', fRes);
+    console.log('         n harmonics :', nHarmonics);
+    console.log('             n notes :', nNotes);
+    console.log('   input buffer size :', inBufferSize);
+    console.log('         window size :', windowSize);
+    console.log('  padded buffer size :', adaptedBufferSize);
+    console.log('     fft buffer size :', fftBufferSize);
+    console.log('cepstrum buffer size :', cepBufferSize);
+    console.log('     hps buffer size :', hpsBufferSize);
   }
 
   function stopPitchTracker() {
@@ -96,18 +115,52 @@ circular.use('pitchTracker', ['bus', 'dsp', 'notes', 'audio', 'config'], functio
     cepstrum.run(adaptedBuffer, cepBuffer);
 
     // compute score and normalize
-    var mag, minMag = 10000, maxMag = -10000, rangeMag, i;
+    var i,
+        fftMag, minFft = 10000, maxFft = -10000, rangeFft,
+        hpsMag, minHps = 10000, maxHps = -10000, rangeHps,
+        cepMag, minCep = 10000, maxCep = -10000, rangeCep,
+        score, minScore = 10000, maxScore = -10000, rangeScore;
     for (i = 0; i < nNotes; ++i) {
-      mag = cepBuffer[noteCepIndexMap[i]] * hpsBuffer[noteHpsIndexMap[i]];
-      noteScoreBuffer[i] = mag;
-      if (mag < minMag) { minMag = mag; }
-      if (mag > maxMag) { maxMag = mag; }
+      fftMag = fftBuffer[noteHpsIndexMap[i]];
+      noteFftBuffer[i] = fftMag;
+      if (fftMag < minFft) { minFft = fftMag; }
+      if (fftMag > maxFft) { maxFft = fftMag; }
+
+      hpsMag = hpsBuffer[noteHpsIndexMap[i]];
+      noteHpsBuffer[i] = hpsMag;
+      if (hpsMag < minHps) { minHps = hpsMag; }
+      if (hpsMag > maxHps) { maxHps = hpsMag; }
+
+      cepMag = cepBuffer[noteCepIndexMap[i]];
+      noteCepBuffer[i] = cepMag;
+      if (cepMag < minCep) { minCep = cepMag; }
+      if (cepMag > maxCep) { maxCep = cepMag; }
+
+      score = cepMag * hpsMag;
+      noteScoreBuffer[i] = score;
+      if (score < minScore) { minScore = score; }
+      if (score > maxScore) { maxScore = score; }
     }
-    rangeMag = maxMag - minMag;
+    rangeFft = maxFft - minFft;
+    rangeHps = maxHps - minHps;
+    rangeCep = maxCep - minCep;
+    rangeScore = maxScore - minScore;
     for (i = 0; i < nNotes; ++i) {
-      noteScoreBuffer[i] = (noteScoreBuffer[i] - minMag) / rangeMag;
+      noteFftBuffer[i] = Math.min(1, Math.max(0, (noteFftBuffer[i] - minFft) / rangeFft));
+      noteHpsBuffer[i] = Math.min(1, Math.max(0, (noteHpsBuffer[i] - minHps) / rangeHps));
+      noteCepBuffer[i] = Math.min(1, Math.max(0, (noteCepBuffer[i] - minCep) / rangeCep));
+      noteScoreBuffer[i] = Math.min(1, Math.max(0, (noteScoreBuffer[i] - minScore) / rangeScore));
     }
-    bus.pub('pitch.data', [noteScoreBuffer]);
+    bus.pub('pitch.data', [noteFftBuffer, noteHpsBuffer, noteCepBuffer, noteScoreBuffer], {
+      minFft: minFft,
+      maxFft: maxFft,
+      minHps: minHps,
+      maxHps: maxHps,
+      minCep: minCep,
+      maxCep: maxCep,
+      minScore: minScore,
+      maxScore: maxScore
+    });
   }
 
   bus.sub('audio.start', startPitchTracker);
