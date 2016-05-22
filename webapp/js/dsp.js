@@ -55,8 +55,7 @@ circular.use('dsp', function DSP() {
     };
   }
 
-  // srcLength must be a power of 2
-  function FFT(srcLength) {
+  /*function FFT(srcLength) {
     var x = new Float32Array(srcLength); // a.k.a trans
 
     function _reverseBinPermute(_src, _dest) {
@@ -101,14 +100,6 @@ circular.use('dsp', function DSP() {
           rval, ival, mag;
 
       _reverseBinPermute(src, x);
-
-      /*
-      var reverseTable = this.reverseTable;
-
-      for (var k = 0, len = reverseTable.length; k < len; k++) {
-        x[k] = src[reverseTable[k]];
-      }
-      */
 
       for (var ix = 0, id = 4; ix < n; id *= 4) {
         for (var i0 = ix; i0 < n; i0 += id) {
@@ -263,6 +254,177 @@ circular.use('dsp', function DSP() {
       }
 
       dest[0] = bSi * x[0];
+    }
+
+    return {
+      run: run
+    };
+  }*/
+
+  function FFT(srcLength) {
+    var rval,
+        ival,
+        halfSize,
+        phaseShiftStepReal,
+        phaseShiftStepImag,
+        currentPhaseShiftReal,
+        currentPhaseShiftImag,
+        off,
+        tr,
+        ti,
+        tmpReal,
+        fftStep,
+        i;
+
+    var real = new Float64Array(srcLength);
+    var imag = new Float64Array(srcLength);
+    var revReal = new Float64Array(srcLength);
+    var revImag = new Float64Array(srcLength);
+
+    var reverseTable = new Uint32Array(srcLength);
+    var bSi = 2 / srcLength;
+    var limit = 1;
+    var bit = srcLength >> 1;
+    while (limit < srcLength) {
+      for (i = 0; i < limit; i++) {
+        reverseTable[i + limit] = reverseTable[i] + bit;
+      }
+      limit = limit << 1;
+      bit = bit >> 1;
+    }
+
+    var sinTable = new Float64Array(srcLength);
+    var cosTable = new Float64Array(srcLength);
+    for (i = 0; i < srcLength; i++) {
+      sinTable[i] = Math.sin(-Math.PI/i);
+      cosTable[i] = Math.cos(-Math.PI/i);
+    }
+
+    function run(src, dest) {
+      halfSize = 1;
+      for (i = 0; i < srcLength; i++) {
+        real[i] = src[reverseTable[i]];
+        imag[i] = 0;
+      }
+
+      while (halfSize < srcLength) {
+        phaseShiftStepReal = cosTable[halfSize];
+        phaseShiftStepImag = sinTable[halfSize];
+
+        currentPhaseShiftReal = 1;
+        currentPhaseShiftImag = 0;
+
+        for (fftStep = 0; fftStep < halfSize; fftStep++) {
+          i = fftStep;
+
+          while (i < srcLength) {
+            off = i + halfSize;
+            tr = (currentPhaseShiftReal * real[off]) - (currentPhaseShiftImag * imag[off]);
+            ti = (currentPhaseShiftReal * imag[off]) + (currentPhaseShiftImag * real[off]);
+
+            real[off] = real[i] - tr;
+            imag[off] = imag[i] - ti;
+            real[i] += tr;
+            imag[i] += ti;
+
+            i += halfSize << 1;
+          }
+
+          tmpReal = currentPhaseShiftReal;
+          currentPhaseShiftReal = (tmpReal * phaseShiftStepReal) - (currentPhaseShiftImag * phaseShiftStepImag);
+          currentPhaseShiftImag = (tmpReal * phaseShiftStepImag) + (currentPhaseShiftImag * phaseShiftStepReal);
+        }
+
+        halfSize = halfSize << 1;
+      }
+
+      for (i = 0; i < srcLength / 2; i++) {
+        rval = real[i];
+        ival = imag[i];
+        dest[i] = bSi * Math.sqrt(rval * rval + ival * ival);
+      }
+    }
+
+    return {
+      run: run
+    };
+  }
+
+  function IFFT(srcLength) {
+    var halfSize,
+        phaseShiftStepReal,
+        phaseShiftStepImag,
+        currentPhaseShiftReal,
+        currentPhaseShiftImag,
+        off,
+        tr,
+        ti,
+        tmpReal,
+        fftStep,
+        i, j;
+
+    var destLength = 2 * srcLength;
+    var real = new Float64Array(destLength);
+    var imag = new Float64Array(destLength);
+    var reverseTable = new Uint32Array(destLength);
+    var limit = 1;
+    var bit = destLength >> 1;
+    while (limit < destLength) {
+      for (i = 0; i < limit; i++) {
+        reverseTable[i + limit] = reverseTable[i] + bit;
+      }
+      limit = limit << 1;
+      bit = bit >> 1;
+    }
+
+    var sinTable = new Float64Array(destLength);
+    var cosTable = new Float64Array(destLength);
+    for (i = 0; i < destLength; i++) {
+      sinTable[i] = Math.sin(-Math.PI/i);
+      cosTable[i] = Math.cos(-Math.PI/i);
+    }
+
+    function run(src, dest) {
+      halfSize = 1;
+      for (i = 0; i < destLength; i++) {
+        j = reverseTable[i];
+        real[i] = j < srcLength ? src[j] : 0;
+        imag[i] = 0;
+      }
+
+      while (halfSize < destLength) {
+        phaseShiftStepReal = cosTable[halfSize];
+        phaseShiftStepImag = sinTable[halfSize];
+        currentPhaseShiftReal = 1;
+        currentPhaseShiftImag = 0;
+
+        for (fftStep = 0; fftStep < halfSize; fftStep++) {
+          i = fftStep;
+
+          while (i < destLength) {
+            off = i + halfSize;
+            tr = (currentPhaseShiftReal * real[off]) - (currentPhaseShiftImag * imag[off]);
+            ti = (currentPhaseShiftReal * imag[off]) + (currentPhaseShiftImag * real[off]);
+
+            real[off] = real[i] - tr;
+            imag[off] = imag[i] - ti;
+            real[i] += tr;
+            imag[i] += ti;
+
+            i += halfSize << 1;
+          }
+
+          tmpReal = currentPhaseShiftReal;
+          currentPhaseShiftReal = (tmpReal * phaseShiftStepReal) - (currentPhaseShiftImag * phaseShiftStepImag);
+          currentPhaseShiftImag = (tmpReal * phaseShiftStepImag) + (currentPhaseShiftImag * phaseShiftStepReal);
+        }
+
+        halfSize = halfSize << 1;
+      }
+
+      for (i = 0; i < destLength; i++) {
+        dest[i] = real[i] / destLength;
+      }
     }
 
     return {
@@ -443,6 +605,7 @@ circular.use('dsp', function DSP() {
     DownSampler: DownSampler,
     Hamming: Hamming,
     FFT: FFT,
+    IFFT: IFFT,
     Cepstrum: Cepstrum,
     HPS: HPS
   };

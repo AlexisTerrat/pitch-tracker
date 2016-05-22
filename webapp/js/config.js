@@ -7,10 +7,10 @@ circular.use('config', function() {
       }
     },
     audio: {
-      bufferSize: 2048
+      bufferSize: 1024
     },
     pitchTracker: {
-      nHarmonics: 6 // make sure that nHarmonics * f(notes.range.end) < sampleRate / 2
+      nHarmonics: 4 // make sure that nHarmonics * f(notes.range.end) < sampleRate / 2
     },
     ui: {
       width: window.innerWidth - 10,

@@ -9,31 +9,25 @@
       <button id="start"> start </button>
       <button id="stop"> stop </button>
     </p>
-    <canvas id="render"></canvas>
 
-    <p>
-      <div id="rms"></div>
-      <br/>
-      <div id="minFft"></div>
-      <div id="maxFft"></div>
-      <br/>
-      <div id="minHps"></div>
-      <div id="maxHps"></div>
-      <br/>
-      <div id="minCep"></div>
-      <div id="maxCep"></div>
-      <br/>
-      <div id="minScore"></div>
-      <div id="maxScore"></div>
-    </p>
+    <div id="signal"></div>
+    <div id="ifft"></div>
+    <div id="cep"></div>
+    <div id="cep2"></div>
+    <div id="fcep"></div>
+    <div id="fft"></div>
+    <div id="hps"></div>
 
     <script src="./js/lib/circular.js"></script>
+    <script src="./js/lib/arrayView.js"></script>
     <script src="./js/eventEmitter.js"></script>
-    <script src="./js/dsp.js"></script>
-    <script src="./js/notes.js"></script>
     <script src="./js/config.js"></script>
-    <script src="./js/audio.js"></script>
-    <script src="./js/pitchTracker.js"></script>
-    <script src="./js/ui.js"></script>
+    <script src="./js/dsp.js"></script>
+    <script src="./js/testAudio.js"></script>
+    <script src="./js/testUI.js"></script>
+    <!--<script src="./js/notes.js"></script>-->
+    <!--<script src="./js/audio.js"></script>-->
+    <!--<script src="./js/pitchTracker.js"></script>-->
+    <!--<script src="./js/ui.js"></script>-->
   </body>
 </html>
